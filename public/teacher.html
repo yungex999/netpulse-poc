@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Teacher Dashboard — NetPulse</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:22px}
+  h1{font-size:28px;margin:0 0 10px}
+  #controls{margin:10px 0 18px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 10px;border-bottom:1px solid #eee;text-align:left}
+  th{background:#fafafa;font-weight:600}
+  .badge{display:inline-block;padding:4px 8px;border-radius:6px;color:#fff;font-weight:600}
+  .green{background:#2ecc71}.yellow{background:#f1c40f}.red{background:#e74c3c}
+  #log{white-space:pre-wrap;font-family:monospace;margin-top:12px;color:#444}
+  button{padding:8px 10px;border-radius:6px;border:0;background:#2b6be6;color:#fff;cursor:pointer}
+  button.secondary{background:#6c757d}
+</style>
+</head>
+<body>
+  <h1>Teacher Dashboard — NetPulse</h1>
+  <div id="controls">
+    <button id="open">Open as Teacher</button>
+    <button id="export" class="secondary">Export CSV</button>
+    <span id="summary" style="margin-left:12px;color:#555"></span>
+  </div>
+
+  <table id="studentsTbl" aria-live="polite">
+    <thead>
+      <tr><th>Student</th><th>RTT (ms)</th><th>Last seen</th><th>Details</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <pre id="log"></pre>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const tbl = document.querySelector('#studentsTbl tbody');
+    const logEl = document.getElementById('log');
+    const summary = document.getElementById('summary');
+
+    // in-memory map: id -> {name, rtt, ts}
+    const students = new Map();
+
+    function fmtTime(ts){
+      const d = new Date(ts);
+      return d.toLocaleTimeString();
+    }
+    function rttClass(rtt){
+      if (rtt === null || rtt === undefined) return 'yellow';
+      if (rtt < 50) return 'green';
+      if (rtt < 150) return 'yellow';
+      return 'red';
+    }
+
+    function updateTable(){
+      // sort by last-seen desc
+      const list = Array.from(students.entries())
+        .sort((a,b)=> (b[1].ts||0) - (a[1].ts||0));
+      tbl.innerHTML = '';
+      for (const [id, s] of list){
+        const tr = document.createElement('tr');
+        const name = s.name || id.slice(0,6);
+        const rtt = (s.rtt==null) ? '—' : s.rtt;
+        const cls = rttClass(s.rtt);
+        tr.innerHTML = `<td>${name} <small style="color:#888">(${id.slice(0,6)})</small></td>
+                        <td><span class="badge ${cls}">${rtt}</span></td>
+                        <td>${s.ts ? fmtTime(s.ts) : '—'}</td>
+                        <td><button data-id="${id}" class="details">Show</button></td>`;
+        tbl.appendChild(tr);
+      }
+      summary.textContent = `Students connected: ${students.size}`;
+      // wire detail buttons
+      tbl.querySelectorAll('.details').forEach(b=>{
+        b.onclick = ()=> {
+          const id = b.dataset.id;
+          const s = students.get(id);
+          log(`DETAIL ${id} → ${JSON.stringify(s)}`);
+        };
+      });
+    }
+
+    function log(msg){
+      logEl.textContent = new Date().toLocaleTimeString() + ' ' + msg + '\\n' + logEl.textContent;
+    }
+
+    document.getElementById('open').onclick = ()=> {
+      socket.emit('join',{role:'teacher', name:'teacher1'});
+      log('opened as teacher1');
+    };
+
+    // export CSV
+    document.getElementById('export').onclick = ()=>{
+      const rows = [['id','name','rtt','last_seen']];
+      for(const [id,s] of students) rows.push([id,s.name || '', s.rtt || '', s.ts || '']);
+      const csv = rows.map(r => r.map(v=>String(v).replace(/"/g,'""')).map(v=>`"${v}"`).join(',')).join('\\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'netpulse-students.csv'; a.click(); URL.revokeObjectURL(url);
+    };
+
+    // socket handlers
+    socket.on('connect', ()=> log('socket connected'));
+    socket.on('student-join', d => {
+      students.set(d.id, {name: d.name, rtt: null, ts: Date.now()});
+      updateTable();
+      log('student-join ' + JSON.stringify(d));
+    });
+
+    socket.on('telemetry', d => {
+      const cur = students.get(d.id) || {};
+      cur.name = d.name || cur.name;
+      cur.rtt = d.rtt;
+      cur.ts = d.ts || Date.now();
+      students.set(d.id, cur);
+      updateTable();
+      // short log
+      log('telemetry ' + JSON.stringify(d));
+    });
+
+    socket.on('student-leave', d => {
+      students.delete(d.id);
+      updateTable();
+      log('student-left ' + JSON.stringify(d));
+    });
+
+  </script>
+</body>
+</html>

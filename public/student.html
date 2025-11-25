@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Student</title></head>
+<body>
+  <h1>Student (NetPulse)</h1>
+  <button id="join">Join as Student</button>
+  <pre id="log"></pre>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const log = msg => document.getElementById('log').textContent += msg + '\n';
+    const socket = io();
+    document.getElementById('join').onclick = () => {
+      socket.emit('join', {role:'student', name:'student1'});
+      log('joined as student1');
+      setInterval(()=> {
+        const t0 = Date.now();
+        socket.emit('heartbeat', {seq: Date.now(), t0});
+      }, 1000);
+    };
+    socket.on('pong', d => log('pong seq='+d.seq));
+  </script>
+</body>
+</html>
