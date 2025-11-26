@@ -1,12 +1,12 @@
 body {
   font-family: -apple-system, system-ui, sans-serif;
-  margin: 22px;
+  margin: 20px;
   background: #ffffff;
   color: #222;
 }
 
 h1 {
-  font-size: 28px;
+  font-size: 26px;
   margin-bottom: 12px;
 }
 
@@ -15,36 +15,6 @@ h1 {
   font-family: monospace;
   margin-top: 12px;
   color: #666;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 12px;
-}
-
-th, td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #eee;
-  text-align: left;
-}
-
-th {
-  background: #fafafa;
-  font-weight: 600;
-}
-
-button {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 0;
-  background: #2b6be6;
-  color: #fff;
-  cursor: pointer;
-}
-
-button.secondary {
-  background: #6c757d;
 }
 
 .badge {
