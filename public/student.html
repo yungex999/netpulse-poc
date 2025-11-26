@@ -2,33 +2,105 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Student</title>
+<title>Teacher Dashboard — NetPulse</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
-  <h1>Student (NetPulse)</h1>
-  <button id="join">Join as Student</button>
+  <h1>Teacher Dashboard — NetPulse</h1>
+
+  <div id="controls">
+    <button id="open">Open as Teacher</button>
+    <span id="summary"></span>
+  </div>
+
+  <table id="studentsTbl">
+    <thead>
+      <tr><th>Student</th><th>RTT</th><th>Last seen</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <pre id="log"></pre>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const log = msg =>
-      document.getElementById('log').textContent += msg + '\n';
+    const socket = io(); // ensure this is served from same origin as server
+    const tbl = document.querySelector('#studentsTbl tbody');
+    const logEl = document.getElementById('log');
+    const summary = document.getElementById('summary');
 
-    const socket = io();
+    const students = new Map();
 
-    document.getElementById('join').onclick = () => {
-      socket.emit('join', {role:'student', name:'student1'});
-      log('joined as student1');
+    function fmtTime(ts){
+      if (!ts) return '—';
+      const d = new Date(ts);
+      if (isNaN(d)) return '—';
+      return d.toLocaleTimeString();
+    }
 
-      setInterval(()=> {
-        const t0 = Date.now();
-        socket.emit('heartbeat', {seq: Date.now(), t0});
-      }, 1000);
+    function safeRtt(rtt){
+      return (rtt === null || rtt === undefined) ? '—' : String(rtt);
+    }
+
+    function updateTable(){
+      tbl.innerHTML = '';
+      const list = Array.from(students.entries())
+        .sort((a,b)=> (b[1].ts||0) - (a[1].ts||0));
+
+      for (const [id, s] of list){
+        const name = s.name || id.slice(0,6);
+        const rtt = safeRtt(s.rtt);
+        const last = fmtTime(s.ts);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${name} <small style="color:#666">(${id.slice(0,6)})</small></td>
+          <td>${rtt}</td>
+          <td>${last}</td>
+        `;
+        tbl.appendChild(tr);
+      }
+
+      summary.textContent = `Students: ${students.size}`;
+    }
+
+    function log(msg){
+      logEl.textContent = new Date().toLocaleTimeString() + ' ' + msg + '\n' + logEl.textContent;
+    }
+
+    // Debug connection status
+    socket.on('connect', () => log('socket connected: ' + socket.id));
+    socket.on('connect_error', err => log('socket connect_error: ' + (err && err.message)));
+
+    document.getElementById('open').onclick = () => {
+      socket.emit('join',{role:'teacher', name:'teacher1'});
+      log('opened as teacher1');
     };
 
-    socket.on('pong', d => log('pong seq='+d.seq));
+    socket.on('student-join', d => {
+      students.set(d.id, {name: d.name || 'student', rtt: null, ts: Date.now()});
+      updateTable();
+      log('student-join ' + JSON.stringify(d));
+    });
+
+    socket.on('telemetry', d => {
+      const s = students.get(d.id) || {};
+      s.name = d.name || s.name || ('s-'+d.id.slice(0,6));
+      s.rtt = d.rtt;
+      s.ts = d.ts || Date.now();
+      students.set(d.id, s);
+      updateTable();
+      // small log
+      log('telemetry ' + JSON.stringify({id:d.id, rtt:d.rtt}));
+    });
+
+    socket.on('student-leave', d => {
+      students.delete(d.id);
+      updateTable();
+      log('student-left ' + JSON.stringify(d));
+    });
   </script>
 </body>
 </html>
