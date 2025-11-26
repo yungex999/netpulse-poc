@@ -15,15 +15,15 @@ const io = new Server(server, {
   }
 });
 
-// Serve public folder
+// Serve the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Root route → student page
+// Root → student.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'student.html'));
 });
 
-// Teacher shortcut route
+// Teacher shortcut
 app.get('/teacher', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'teacher.html'));
 });
@@ -73,8 +73,8 @@ io.on('connection', socket => {
   });
 });
 
-/* Railway PORT */
+/* Railway port */
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
-);
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
