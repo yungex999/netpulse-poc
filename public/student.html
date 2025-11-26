@@ -19,16 +19,16 @@
     const socket = io();
 
     document.getElementById('join').onclick = () => {
-      socket.emit('join', { role: 'student', name: 'student1' });
+      socket.emit('join', {role:'student', name:'student1'});
       log('joined as student1');
 
-      setInterval(() => {
+      setInterval(()=> {
         const t0 = Date.now();
-        socket.emit('heartbeat', { seq: Date.now(), t0 });
+        socket.emit('heartbeat', {seq: Date.now(), t0});
       }, 1000);
     };
 
-    socket.on('pong', d => log('pong seq=' + d.seq));
+    socket.on('pong', d => log('pong seq='+d.seq));
   </script>
 </body>
 </html>
