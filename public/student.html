@@ -7,16 +7,31 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>Student (NetPulse)</h1>
-  <div id="roleLabel" class="muted">Role: <strong>student</strong></div>
+  <h1>Student Dashboard</h1>
+  <div id="roleLabel">Role: <strong>student</strong></div>
 
-  <button id="join">Join as Student</button>
-  <pre id="log" aria-live="polite"></pre>
+  <div id="controls">
+    <button id="join" class="primary">Join as Student</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Status</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+
+  <div class="container">
+    <button id="toggleLog">Show Logs</button>
+    <pre id="log" aria-live="polite">Logs are here: </pre>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const logEl = document.getElementById('log');
     const log = msg => logEl.textContent += (msg + '\n');
+    const toggleBtn = document.getElementById('toggleLog');
 
     const socket = io();
     socket.on('connect', ()=> log('socket connected: ' + socket.id));
@@ -33,6 +48,9 @@
     };
 
     socket.on('pong', d => log('pong seq=' + d.seq));
+    toggleBtn.onclick = () => {
+        logEl.style.display = logEl.style.display === 'none' ? 'block' : 'none';
+      };
   </script>
 </body>
 </html>
