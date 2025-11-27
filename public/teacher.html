@@ -1,23 +1,22 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Teacher Dashboard — NetPulse</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/style.css">
+  <meta charset="utf-8">
+  <title>Teacher Dashboard — NetPulse</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
   <h1>Teacher Dashboard — NetPulse</h1>
-
   <div id="controls">
     <button id="open">Open as Teacher</button>
-    <span id="summary"></span>
+    <button id="export" class="secondary">Export CSV</button>
+    <span id="summary" class="muted"></span>
   </div>
 
-  <table id="studentsTbl">
+  <table id="studentsTbl" aria-live="polite">
     <thead>
-      <tr><th>Student</th><th>RTT</th><th>Last seen</th></tr>
+      <tr><th>Student</th><th>RTT (ms)</th><th>Last seen</th><th>Details</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -32,61 +31,79 @@
     const summary = document.getElementById('summary');
 
     const students = new Map();
+    const log = msg => logEl.textContent = new Date().toLocaleTimeString() + ' ' + msg + '\n' + logEl.textContent;
 
     function fmtTime(ts){
-      return new Date(ts).toLocaleTimeString();
+      if (!ts) return '—';
+      const d = new Date(ts);
+      return isNaN(d) ? '—' : d.toLocaleTimeString();
     }
-
-    function rttClass(rtt){
-      if (rtt == null) return 'yellow';
-      if (rtt < 50) return 'green';
-      if (rtt < 150) return 'yellow';
-      return 'red';
-    }
+    function safeRtt(rtt){ return (rtt === null || rtt === undefined) ? '—' : String(rtt); }
 
     function updateTable(){
       tbl.innerHTML = '';
       const list = Array.from(students.entries())
         .sort((a,b)=> (b[1].ts||0) - (a[1].ts||0));
-
       for (const [id, s] of list){
+        const name = s.name || id.slice(0,6);
+        const rtt = safeRtt(s.rtt);
+        const last = fmtTime(s.ts);
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${s.name}</td>
-          <td>${s.rtt}</td>
-          <td>${fmtTime(s.ts)}</td>
+          <td>${name} <small class="muted">(${id.slice(0,6)})</small></td>
+          <td>${rtt}</td>
+          <td>${last}</td>
+          <td><button class="details" data-id="${id}">Show</button></td>
         `;
         tbl.appendChild(tr);
       }
-
-      summary.textContent = `Students: ${students.size}`;
+      summary.textContent = `Students connected: ${students.size}`;
+      tbl.querySelectorAll('.details').forEach(b => {
+        b.onclick = () => {
+          const s = students.get(b.dataset.id);
+          log('DETAIL ' + b.dataset.id + ' → ' + JSON.stringify(s));
+        };
+      });
     }
 
-    function log(msg){
-      logEl.textContent = msg + '\n' + logEl.textContent;
-    }
+    socket.on('connect', ()=> log('socket connected: ' + socket.id));
+    socket.on('connect_error', err => log('connect_error: ' + (err && err.message)));
 
     document.getElementById('open').onclick = () => {
-      socket.emit('join',{role:'teacher', name:'teacher1'});
+      socket.emit('join', { role:'teacher', name:'teacher1' });
+      log('opened as teacher1');
+      const b = document.getElementById('open'); b.disabled = true; b.textContent = 'Teacher (connected)';
+    };
+
+    document.getElementById('export').onclick = () => {
+      const rows = [['id','name','rtt','last_seen']];
+      for(const [id,s] of students) rows.push([id, s.name||'', s.rtt||'', s.ts||'']);
+      const csv = rows.map(r => r.map(v=>String(v).replace(/"/g,'""')).map(v=>`"${v}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'netpulse-students.csv'; a.click();
+      URL.revokeObjectURL(a.href);
     };
 
     socket.on('student-join', d => {
-      students.set(d.id, {name: d.name, rtt: null, ts: Date.now()});
+      students.set(d.id, { name: d.name || 'student', rtt: null, ts: Date.now() });
       updateTable();
+      log('student-join ' + JSON.stringify(d));
     });
 
     socket.on('telemetry', d => {
       const s = students.get(d.id) || {};
-      s.name = d.name;
+      s.name = d.name || s.name;
       s.rtt = d.rtt;
-      s.ts = d.ts;
+      s.ts = d.ts || Date.now();
       students.set(d.id, s);
       updateTable();
+      log('telemetry ' + JSON.stringify({ id: d.id, rtt: d.rtt }));
     });
 
     socket.on('student-leave', d => {
       students.delete(d.id);
       updateTable();
+      log('student-left ' + JSON.stringify(d));
     });
   </script>
 </body>
