@@ -21,7 +21,10 @@
     <tbody></tbody>
   </table>
 
-  <pre id="log"></pre>
+  <div class="container">
+    <button id="toggleLog">Show Logs</button>
+    <pre id="log" aria-live="polite">Logs are here: </pre>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -29,6 +32,7 @@
     const tbl = document.querySelector('#studentsTbl tbody');
     const logEl = document.getElementById('log');
     const summary = document.getElementById('summary');
+    const toggleBtn = document.getElementById('toggleLog');
 
     const students = new Map();
     const log = msg => logEl.textContent = new Date().toLocaleTimeString() + ' ' + msg + '\n' + logEl.textContent;
@@ -105,6 +109,9 @@
       updateTable();
       log('student-left ' + JSON.stringify(d));
     });
+    toggleBtn.onclick = () => {
+        logEl.style.display = logEl.style.display === 'none' ? 'block' : 'none';
+      };
   </script>
 </body>
 </html>
